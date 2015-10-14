@@ -1,2 +1,2 @@
 # php_rsync_code_tool
-php简易代码部署工具
+基于svn的php简易代码部署工具
