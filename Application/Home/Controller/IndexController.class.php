@@ -1,39 +1,13 @@
 <?php
 namespace Home\Controller;
 use Think\Controller;
-class IndexController extends Controller {
-    public function __construct(){
-        parent::__construct();
-        /*$this->wkey = session_id();
-        $uid = S($this->wkey);
-        if(empty($uid)){
-            $this->login();
-            exit;
-        }   */
-    }
-    /**
-     * 登录
-     * @return [type] [description]
-     */
-    public function login(){
-        if(I('request.username')){
-            $username = I('request.username');
-            $passwd = I('request.passwd');
-            if($username =='shl3807' && $passwd =='shl1212'){
-                S($this->wkey,$username,86400);
-                header("location:/?s=home/index/index");
-                exit;
-            }else{
-                $this->error('用户名密码错误',$_SERVER['HTTP_REFERER']);
-            }
-        }
-        $this->display();
-    }
+class IndexController extends FontController {
     /**
      * [index description]
      * @return [type] [列表页面]
      */
     public function index(){
+        $this->checklogin();
     	$path = I('request.path');
         if(empty($path)){
             $path = C('SVN_DATA_PATH');
@@ -54,7 +28,7 @@ class IndexController extends Controller {
                 }else{
                     $result[$key]['is_mulu'] = 0;
                 }
-                $result[$key]['path'] = str_replace('/','|',$real_path);
+                $result[$key]['path'] = ensepchtml($real_path); //因为tpurl结尾的html默认不处理
                 $result[$key]['last_up_time'] = date('Y-m-d H:i:s',filemtime($real_path));
             }
     	}
@@ -68,13 +42,14 @@ class IndexController extends Controller {
      * @return [type] [description]
      */
     public function submit(){
+        $this->checklogin();
         $paths = I('request.path');
         $path_arr = [];
         if(empty($paths)){
             $this->error('提交数据为空',$_SERVER['HTTP_REFERER']);
         }
         foreach($paths as $k=>$v){
-            $file_name = str_replace('|','/',$v);
+            $file_name = desepchtml($v);
             $path_has = explode('/',$file_name);
             if(in_array($path_has[3] ,C('EXCLUDE_PATH_NAME'))){
                 $this->error('错误数据',$_SERVER['HTTP_REFERER']);
@@ -86,7 +61,7 @@ class IndexController extends Controller {
             }
 
             //当前目录的raync配置
-            $one_rsync = $rsync_sets[$path_has[4]][$path_has[5]];
+            $one_rsync = $rsync_sets[$path_has[4]];
             if(empty($one_rsync)){
                 $this->error('错误数据,没有rsync配置',$_SERVER['HTTP_REFERER']);
             }
@@ -98,9 +73,13 @@ class IndexController extends Controller {
                 array_pop($left_path);
                 $rsync_to_psth = '/'.implode('/', $left_path);
             }
+            if(empty($rsync_to_psth)){
+                $file_name = $file_name.'/';
+            }
 
-            $cmd = "rsync -vzrtopgl --progress --exclude=\".svn\" {$file_name} {$one_rsync['ip']}::{$one_rsync['module']}{$rsync_to_psth}";
-            
+            $cmd = "rsync -vzrtopgl --progress {$one_rsync['exclude']} {$file_name} {$one_rsync['ip']}::{$one_rsync['module']}{$rsync_to_psth}";
+            echo $cmd;
+            //exit;
             //执行rsync命令
             system($cmd);
             
@@ -114,8 +93,9 @@ class IndexController extends Controller {
      * @return [type] [description]
      */
     public function lookcode(){
+        $this->checklogin();
         $path = I('request.path');
-        $path = str_replace('|','/',$path);
+        $path = desepchtml($path);
         if(!is_file($path)){
             $this->error('不是文件',$_SERVER['HTTP_REFERER']);
         }
